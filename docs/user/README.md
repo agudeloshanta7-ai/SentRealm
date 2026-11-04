@@ -5,8 +5,8 @@
 | 项 | 说明 |
 |----|------|
 | 产品定位 | 见 [产品定义与 MVP](../planning/01-product-definition-and-mvp.md) |
-| 当前版本阶段 | 正式版 `1.0.0`（见 [路线图](../planning/03-roadmap.md)） |
-| 分发状态 | 从 [GitHub Releases](https://github.com/qiuku2022/SentRealm/releases/latest) 下载 Windows NSIS 安装包（`1.0.0`）。安装包尚未代码签名，Windows SmartScreen 可能提示「无法验证发布者」 |
+| 当前版本阶段 | 正式版 `1.1.0`（见 [路线图](../planning/03-roadmap.md)） |
+| 分发状态 | 从 [GitHub Releases](https://github.com/qiuku2022/SentRealm/releases/latest) 下载 Windows NSIS 安装包（`1.1.0`）。安装包尚未代码签名，Windows SmartScreen 可能提示「无法验证发布者」 |
 | 主平台 | Windows 10 / 11 |
 
 开发者请改读 [开发指南](../dev/README.md)，不要用本文当环境搭建手册。

@@ -5,7 +5,7 @@
 
 **文档日期**：2026-09-18
 
-**当前对外状态**：M1–M3 已完成；桌面壳 **`1.0.0`** 已在 [GitHub Releases](https://github.com/qiuku2022/SentRealm/releases/latest) 发布 Windows 安装包（未签名）。下一优先：干净机冒烟与代码签名。
+**当前对外状态**：M1–M3 已完成；桌面壳已迭代至 **`1.1.0`** 并完成本地生产打包（首发版本 `1.0.0` 已在 [GitHub Releases](https://github.com/qiuku2022/SentRealm/releases/latest) 发布未签名安装包）。下一优先：干净机冒烟与代码签名。
 
 ---
 
