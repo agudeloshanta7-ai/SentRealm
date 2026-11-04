@@ -930,7 +930,7 @@ export function AppShell() {
       <header className="shell-appbar" data-tauri-drag-region>
         <div className="shell-appbar-title" data-tauri-drag-region>
           <span>SentRealm · 文稿预处理</span>
-          <span className="shell-preview-badge">预览版</span>
+          {/* <span className="shell-preview-badge">预览版</span> */}
         </div>
         <TitleBarControls />
       </header>

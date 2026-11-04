@@ -1444,7 +1444,7 @@ button.shell-pill-chip:hover {
   gap: 0;
   height: var(--shell-fab-h);
   padding: 12px;
-  min-width: 480px;
+  width: 560px;
   max-width: calc(100% - 48px);
   border-radius: var(--shell-r-lg);
   background: var(--shell-surface);
@@ -1632,6 +1632,7 @@ button.shell-pill-chip:hover {
   min-width: 0;
   padding: 0 14px;
   margin-left: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .shell-fab-status-main {
@@ -1647,6 +1648,7 @@ button.shell-pill-chip:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 .shell-btn-go {
