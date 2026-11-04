@@ -81,3 +81,48 @@ def test_unknown_custom_remove_token_is_strip_only_and_keep_wins() -> None:
     )
     assert [sentence.text for sentence in sentences] == ["甲乙+丙"]
     assert sentences[0].boundaries == ()
+
+
+def test_custom_punctuation_categories_in_strip_punctuation() -> None:
+    # Promote semicolon ';' to hard break, demote period '。' to candidate break
+    text = "第一段；第二段。第三段"
+    sentences = strip_punctuation_with_boundaries(
+        text,
+        punctuation_hard_breaks=[";", "；"],
+        punctuation_candidates=["。"],
+        punctuation_remove_only=[],
+        punctuation_keep=[],
+    )
+    assert [sentence.text for sentence in sentences] == ["第一段", "第二段第三段"]
+    assert sentences[0].boundaries == ()
+    assert sentences[1].boundaries == (
+        PunctuationBoundary(char_offset=3, penalty=NORMAL_BOUNDARY_PENALTY),
+    )
+
+
+def test_remove_only_tokens_produce_no_boundaries() -> None:
+    text = "划重点#关键信息*"
+    sentences = strip_punctuation_with_boundaries(
+        text,
+        punctuation_hard_breaks=[],
+        punctuation_candidates=[],
+        punctuation_remove_only=["#", "*"],
+        punctuation_keep=[],
+    )
+    assert [sentence.text for sentence in sentences] == ["划重点关键信息"]
+    assert sentences[0].boundaries == ()
+
+
+def test_master_switch_disabled_retains_punctuation() -> None:
+    text = "你好，世界！\n第二行。"
+    sentences = strip_punctuation_with_boundaries(
+        text,
+        punctuation_hard_breaks=[],
+        punctuation_candidates=[],
+        punctuation_remove_only=[],
+        punctuation_keep=[],
+        punctuation_remove=[],
+    )
+    assert [sentence.text for sentence in sentences] == ["你好，世界！", "第二行。"]
+    assert sentences[0].boundaries == ()
+    assert sentences[1].boundaries == ()

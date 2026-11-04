@@ -2430,6 +2430,35 @@ button.shell-pill-chip:hover {
   gap: 6px;
 }
 
+.shell-punctuation-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-top: 1px solid var(--shell-border-soft);
+}
+
+.shell-row-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.shell-row-stacked + .shell-row-stacked {
+  border-top: 1px solid var(--shell-border-soft);
+}
+
+.shell-row-stacked .shell-input-x {
+  width: 100%;
+}
+
+.shell-punctuation-reset-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
 .shell-inline-reset-btn {
   min-height: 26px;
   display: inline-flex;

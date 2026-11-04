@@ -38,8 +38,11 @@ class NaturalSentence:
 def strip_punctuation_with_boundaries(
     text: str,
     *,
-    punctuation_remove: list[str],
-    punctuation_keep: list[str],
+    punctuation_remove: list[str] | None = None,
+    punctuation_keep: list[str] | None = None,
+    punctuation_hard_breaks: list[str] | None = None,
+    punctuation_candidates: list[str] | None = None,
+    punctuation_remove_only: list[str] | None = None,
 ) -> list[NaturalSentence]:
     """Remove configured punctuation and retain ranked break candidates.
 
@@ -50,8 +53,37 @@ def strip_punctuation_with_boundaries(
     not countable under the product character-counting rules.
     """
 
-    remove_tokens = sorted(set(punctuation_remove), key=len, reverse=True)
-    keep_tokens = sorted(set(punctuation_keep), key=len, reverse=True)
+    keep_tokens = sorted(set(punctuation_keep or ()), key=len, reverse=True)
+    keep_set = set(keep_tokens)
+
+    has_explicit_categories = (
+        punctuation_hard_breaks is not None
+        or punctuation_candidates is not None
+        or punctuation_remove_only is not None
+    )
+
+    if has_explicit_categories:
+        hard_set = set(punctuation_hard_breaks or ()) - keep_set
+        candidate_set = (set(punctuation_candidates or ()) - keep_set) - hard_set
+        remove_only_set = (
+            (set(punctuation_remove_only or ()) - keep_set) - hard_set
+        ) - candidate_set
+        if punctuation_remove is not None and len(punctuation_remove) == 0 and not hard_set and not candidate_set and not remove_only_set:
+            remove_tokens: list[str] = []
+        else:
+            all_remove = hard_set | candidate_set | remove_only_set
+            remove_tokens = sorted(all_remove, key=len, reverse=True)
+    else:
+        raw_remove = set(punctuation_remove or ()) - keep_set
+        hard_set = {t for t in raw_remove if t in _HARD_BREAK_TOKENS}
+        candidate_set = {
+            t
+            for t in raw_remove
+            if t in _STRONG_CANDIDATE_TOKENS or t in _NORMAL_CANDIDATE_TOKENS
+        }
+        remove_only_set = raw_remove - hard_set - candidate_set
+        remove_tokens = sorted(raw_remove, key=len, reverse=True)
+
     sentences: list[NaturalSentence] = []
     parts: list[str] = []
     boundaries: dict[int, int] = {}
@@ -113,13 +145,14 @@ def strip_punctuation_with_boundaries(
             index += 1
             continue
 
-        if removed in _HARD_BREAK_TOKENS:
+        if removed in hard_set:
             flush_sentence()
-        elif removed in _STRONG_CANDIDATE_TOKENS:
-            add_boundary(STRONG_BOUNDARY_PENALTY)
-        elif removed in _NORMAL_CANDIDATE_TOKENS:
-            add_boundary(NORMAL_BOUNDARY_PENALTY)
-        # Other removed tokens (such as unknown custom tokens) are strip-only.
+        elif removed in candidate_set:
+            if removed in _STRONG_CANDIDATE_TOKENS:
+                add_boundary(STRONG_BOUNDARY_PENALTY)
+            else:
+                add_boundary(NORMAL_BOUNDARY_PENALTY)
+        # Other removed tokens (such as remove_only_set or unknown custom tokens) are strip-only.
         index += len(removed)
 
     flush_sentence()
@@ -129,8 +162,11 @@ def strip_punctuation_with_boundaries(
 def remove_punctuation_and_break_lines(
     text: str,
     *,
-    punctuation_remove: list[str],
-    punctuation_keep: list[str],
+    punctuation_remove: list[str] | None = None,
+    punctuation_keep: list[str] | None = None,
+    punctuation_hard_breaks: list[str] | None = None,
+    punctuation_candidates: list[str] | None = None,
+    punctuation_remove_only: list[str] | None = None,
 ) -> str:
     """Compatibility helper returning cleaned natural sentences as text lines."""
 
@@ -138,5 +174,8 @@ def remove_punctuation_and_break_lines(
         text,
         punctuation_remove=punctuation_remove,
         punctuation_keep=punctuation_keep,
+        punctuation_hard_breaks=punctuation_hard_breaks,
+        punctuation_candidates=punctuation_candidates,
+        punctuation_remove_only=punctuation_remove_only,
     )
     return "\n".join(sentence.text for sentence in sentences)

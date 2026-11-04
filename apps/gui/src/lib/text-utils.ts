@@ -13,12 +13,55 @@ export function formatLineNumber(index: number): string {
 }
 
 export function parsePunctuationKeep(raw: string): string[] {
-  const tokens = Array.from(raw).filter((token) => !/\s/u.test(token));
-  return [...new Set(tokens)];
+  return parsePunctuationTokens(raw);
 }
 
 export function formatPunctuationKeep(tokens: string[]): string {
-  return tokens.join(" ");
+  return formatPunctuationTokens(tokens);
+}
+
+export function parsePunctuationTokens(raw: string): string[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (/\s+/u.test(raw)) {
+    const tokens = raw.split(/\s+/u).filter((t) => t.length > 0);
+    return [...new Set(tokens)];
+  }
+  return [...new Set(Array.from(raw).filter((token) => !/\s/u.test(token)))];
+}
+
+export function formatPunctuationTokens(tokens?: string[]): string {
+  return (tokens ?? []).join(" ");
+}
+
+export function resolvePunctuationSettings(partial: {
+  keep: string[];
+  hard: string[];
+  candidates: string[];
+  removeOnly: string[];
+}) {
+  const keep = [...new Set(partial.keep)];
+  const keepSet = new Set(keep);
+
+  const hard = [...new Set(partial.hard)].filter((t) => !keepSet.has(t));
+  const hardSet = new Set(hard);
+
+  const candidates = [...new Set(partial.candidates)].filter(
+    (t) => !keepSet.has(t) && !hardSet.has(t),
+  );
+  const candidateSet = new Set(candidates);
+
+  const removeOnly = [...new Set(partial.removeOnly)].filter(
+    (t) => !keepSet.has(t) && !hardSet.has(t) && !candidateSet.has(t),
+  );
+
+  return {
+    punctuation_keep: keep,
+    punctuation_hard_breaks: hard,
+    punctuation_candidates: candidates,
+    punctuation_remove_only: removeOnly,
+    punctuation_remove: [...hard, ...candidates, ...removeOnly],
+  };
 }
 
 export function formatRelativeTime(iso: string): string {

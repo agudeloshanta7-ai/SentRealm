@@ -563,6 +563,9 @@ components:
         - min_chars
         - punctuation_remove
         - punctuation_keep
+        - punctuation_hard_breaks
+        - punctuation_candidates
+        - punctuation_remove_only
         - llm_enabled
         - llm_endpoint
         - llm_model
@@ -626,6 +629,43 @@ components:
             type: string
           default: ["%", "."]
           example: ["%", "."]
+        punctuation_hard_breaks:
+          type: array
+          description: 强制断句标点，形成自然句硬边界（强制断行）
+          items:
+            type: string
+          default: ["。", "！", "？", "!", "?"]
+        punctuation_candidates:
+          type: array
+          description: 候选断句标点，仅在所在行超长时作为切分候选
+          items:
+            type: string
+          default:
+            - "，"
+            - ","
+            - "；"
+            - ";"
+            - "："
+            - ":"
+            - "、"
+            - "——"
+            - "…"
+            - "“"
+            - "”"
+            - "‘"
+            - "’"
+            - """
+            - "'"
+            - "（"
+            - "）"
+            - "("
+            - ")"
+        punctuation_remove_only:
+          type: array
+          description: 仅去除标点，从文本中移除但绝不产生断句断点
+          items:
+            type: string
+          default: ["％"]
         llm_enabled:
           type: boolean
           default: false

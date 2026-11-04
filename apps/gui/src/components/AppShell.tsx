@@ -80,6 +80,15 @@ function normalizeSettings(raw: Settings): Settings {
   return {
     ...raw,
     punctuation_keep: parsePunctuationKeep(raw.punctuation_keep.join("")),
+    punctuation_hard_breaks: raw.punctuation_hard_breaks
+      ? [...new Set(raw.punctuation_hard_breaks)]
+      : undefined,
+    punctuation_candidates: raw.punctuation_candidates
+      ? [...new Set(raw.punctuation_candidates)]
+      : undefined,
+    punctuation_remove_only: raw.punctuation_remove_only
+      ? [...new Set(raw.punctuation_remove_only)]
+      : undefined,
     break_lexicon: raw.break_lexicon ?? emptyBreakLexicon(),
   };
 }

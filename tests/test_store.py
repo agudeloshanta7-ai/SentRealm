@@ -129,3 +129,50 @@ def test_default_config_path_on_windows(
     assert path.parent.is_dir()
     assert os.access(path.parent, os.W_OK)
 
+
+
+def test_settings_punctuation_priority_and_deduplication() -> None:
+    # If a token is in keep, it is excluded from all remove categories.
+    # If in hard_breaks, excluded from candidates and remove_only.
+    # If in candidates, excluded from remove_only.
+    s = Settings(
+        punctuation_keep=["%", "。", " "],
+        punctuation_hard_breaks=["。", "！"],
+        punctuation_candidates=["！", "，", "、", "~"],
+        punctuation_remove_only=["~", "#", "%"],
+    )
+    assert s.punctuation_keep == ["%", "。"]
+    assert s.punctuation_hard_breaks == ["！"]
+    assert s.punctuation_candidates == ["，", "、", "~"]
+    assert s.punctuation_remove_only == ["#"]
+    assert s.punctuation_remove == ["！", "，", "、", "~", "#"]
+
+
+def test_settings_backward_compatibility_with_legacy_remove_only() -> None:
+    # Legacy data has punctuation_remove but no new fields
+    legacy = {
+        "preset": "landscape",
+        "max_chars": 15,
+        "min_chars": 5,
+        "punctuation_remove": ["。", "！", "，", "“", "未知"],
+        "punctuation_keep": ["%"],
+    }
+    s = Settings.model_validate(legacy)
+    assert s.punctuation_hard_breaks == ["。", "！"]
+    assert s.punctuation_candidates == ["，", "“"]
+    assert s.punctuation_remove_only == ["未知"]
+    assert s.punctuation_remove == ["。", "！", "，", "“", "未知"]
+
+
+def test_settings_when_remove_is_empty_clears_categories() -> None:
+    # Master switch off => empty removal lists
+    s = Settings(
+        punctuation_remove=[],
+        punctuation_hard_breaks=[],
+        punctuation_candidates=[],
+        punctuation_remove_only=[],
+    )
+    assert s.punctuation_hard_breaks == []
+    assert s.punctuation_candidates == []
+    assert s.punctuation_remove_only == []
+    assert s.punctuation_remove == []

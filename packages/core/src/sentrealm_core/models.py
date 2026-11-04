@@ -9,21 +9,24 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 Preset = Literal["landscape", "portrait", "custom"]
 PreprocessPhase = Literal["rules", "llm"]
 
-DEFAULT_PUNCTUATION_REMOVE: list[str] = [
-    "，",
+DEFAULT_PUNCTUATION_HARD_BREAK: list[str] = [
     "。",
     "！",
     "？",
-    "：",
-    "；",
-    "——",
-    "、",
-    ",",
-    ".",
     "!",
     "?",
+]
+
+DEFAULT_PUNCTUATION_CANDIDATES: list[str] = [
+    "，",
+    ",",
+    "；",
     ";",
+    "：",
     ":",
+    "、",
+    "——",
+    "…",
     "“",
     "”",
     "‘",
@@ -34,11 +37,30 @@ DEFAULT_PUNCTUATION_REMOVE: list[str] = [
     "）",
     "(",
     ")",
-    "…",
-    "％",
 ]
 
+DEFAULT_PUNCTUATION_REMOVE_ONLY: list[str] = ["％"]
+
 DEFAULT_PUNCTUATION_KEEP: list[str] = ["%", "."]
+
+DEFAULT_PUNCTUATION_REMOVE: list[str] = [
+    *DEFAULT_PUNCTUATION_HARD_BREAK,
+    *DEFAULT_PUNCTUATION_CANDIDATES,
+    *DEFAULT_PUNCTUATION_REMOVE_ONLY,
+]
+
+
+def _clean_token_list(tokens: object) -> list[str]:
+    if tokens is None:
+        return []
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in tokens:  # type: ignore[union-attr]
+        tok = str(item).strip()
+        if tok and tok not in seen:
+            seen.add(tok)
+            cleaned.append(tok)
+    return cleaned
 
 PRESET_MAX_CHARS: dict[Preset, int] = {
     "landscape": 15,
@@ -134,19 +156,100 @@ class Settings(BaseModel):
     preset: Preset = "landscape"
     max_chars: int = Field(default=15, ge=1)
     min_chars: int = Field(default=DEFAULT_MIN_CHARS, ge=1)
-    punctuation_remove: list[str] = Field(default_factory=lambda: list(DEFAULT_PUNCTUATION_REMOVE))
     punctuation_keep: list[str] = Field(default_factory=lambda: list(DEFAULT_PUNCTUATION_KEEP))
+    punctuation_hard_breaks: list[str] = Field(default_factory=lambda: list(DEFAULT_PUNCTUATION_HARD_BREAK))
+    punctuation_candidates: list[str] = Field(default_factory=lambda: list(DEFAULT_PUNCTUATION_CANDIDATES))
+    punctuation_remove_only: list[str] = Field(default_factory=lambda: list(DEFAULT_PUNCTUATION_REMOVE_ONLY))
+    punctuation_remove: list[str] = Field(default_factory=lambda: list(DEFAULT_PUNCTUATION_REMOVE))
     llm_enabled: bool = False
     llm_endpoint: str = ""
     llm_model: str = ""
     break_lexicon: BreakLexiconSettings = Field(default_factory=_default_break_lexicon_settings)
 
-    @field_validator("punctuation_remove", "punctuation_keep", mode="before")
+    @field_validator(
+        "punctuation_remove",
+        "punctuation_keep",
+        "punctuation_hard_breaks",
+        "punctuation_candidates",
+        "punctuation_remove_only",
+        mode="before",
+    )
     @classmethod
     def _coerce_punctuation_lists(cls, value: object) -> list[str]:
-        if value is None:
-            return []
-        return list(value)  # type: ignore[arg-type]
+        return _clean_token_list(value)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_and_partition_punctuation(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        has_new_fields = any(
+            k in data
+            for k in (
+                "punctuation_hard_breaks",
+                "punctuation_candidates",
+                "punctuation_remove_only",
+            )
+        )
+        if "punctuation_remove" in data and not has_new_fields:
+            raw_remove = data.get("punctuation_remove")
+            if raw_remove is None or len(raw_remove) == 0:
+                data["punctuation_hard_breaks"] = []
+                data["punctuation_candidates"] = []
+                data["punctuation_remove_only"] = []
+            else:
+                hard: list[str] = []
+                cand: list[str] = []
+                rem_only: list[str] = []
+                hard_set = {"。", "！", "？", ".", "!", "?"}
+                cand_set = set(DEFAULT_PUNCTUATION_CANDIDATES)
+                for tok in raw_remove:
+                    t = str(tok).strip()
+                    if not t:
+                        continue
+                    if t in hard_set:
+                        hard.append(t)
+                    elif t in cand_set:
+                        cand.append(t)
+                    else:
+                        rem_only.append(t)
+                data["punctuation_hard_breaks"] = hard
+                data["punctuation_candidates"] = cand
+                data["punctuation_remove_only"] = rem_only
+        return data
+
+    @model_validator(mode="after")
+    def _enforce_punctuation_priority(self) -> Settings:
+        keep = _clean_token_list(self.punctuation_keep)
+        keep_set = set(keep)
+
+        raw_hard = _clean_token_list(self.punctuation_hard_breaks)
+        raw_cand = _clean_token_list(self.punctuation_candidates)
+        raw_rem_only = _clean_token_list(self.punctuation_remove_only)
+        raw_remove = _clean_token_list(self.punctuation_remove)
+
+        if not raw_hard and not raw_cand and not raw_rem_only and not raw_remove:
+            self.punctuation_hard_breaks = []
+            self.punctuation_candidates = []
+            self.punctuation_remove_only = []
+            self.punctuation_remove = []
+            self.punctuation_keep = keep
+            return self
+
+        hard = [t for t in raw_hard if t not in keep_set]
+        hard_set = set(hard)
+
+        cand = [t for t in raw_cand if t not in keep_set and t not in hard_set]
+        cand_set = set(cand)
+
+        rem_only = [t for t in raw_rem_only if t not in keep_set and t not in hard_set and t not in cand_set]
+
+        self.punctuation_keep = keep
+        self.punctuation_hard_breaks = hard
+        self.punctuation_candidates = cand
+        self.punctuation_remove_only = rem_only
+        self.punctuation_remove = hard + cand + rem_only
+        return self
 
     @model_validator(mode="after")
     def _min_chars_not_above_max(self) -> Settings:

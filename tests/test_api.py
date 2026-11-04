@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sentrealm_core import Settings, SqliteSettingsStore
-from sentrealm_core.models import DEFAULT_PUNCTUATION_KEEP, DEFAULT_PUNCTUATION_REMOVE
+from sentrealm_core.models import DEFAULT_PUNCTUATION_CANDIDATES, DEFAULT_PUNCTUATION_HARD_BREAK, DEFAULT_PUNCTUATION_KEEP, DEFAULT_PUNCTUATION_REMOVE, DEFAULT_PUNCTUATION_REMOVE_ONLY
 
 from apps.gui.api.main import create_app
 
@@ -256,3 +256,36 @@ def test_put_settings_leading_particles_round_trip(client: TestClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["break_lexicon"]["leading_particles"] == ["的", "在", "于"]
+
+
+def test_get_settings_includes_punctuation_categories(client: TestClient) -> None:
+    resp = client.get("/api/v1/settings")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["punctuation_hard_breaks"] == DEFAULT_PUNCTUATION_HARD_BREAK
+    assert data["punctuation_candidates"] == DEFAULT_PUNCTUATION_CANDIDATES
+    assert data["punctuation_remove_only"] == DEFAULT_PUNCTUATION_REMOVE_ONLY
+
+
+def test_put_settings_custom_punctuation_categories(client: TestClient) -> None:
+    payload = client.get("/api/v1/settings").json()
+    payload["punctuation_hard_breaks"] = [";"]
+    payload["punctuation_candidates"] = ["。"]
+    payload["punctuation_remove_only"] = ["#"]
+    payload["punctuation_keep"] = ["%"]
+
+    resp = client.put("/api/v1/settings", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["punctuation_hard_breaks"] == [";"]
+    assert data["punctuation_candidates"] == ["。"]
+    assert data["punctuation_remove_only"] == ["#"]
+    assert data["punctuation_remove"] == [";", "。", "#"]
+
+    preprocess_resp = client.post(
+        "/api/v1/preprocess",
+        json={"text": "第一段;第二段。第三段", "settings": data},
+    )
+    assert preprocess_resp.status_code == 200
+    body = preprocess_resp.json()
+    assert "第一段" in body["processed"]

@@ -123,7 +123,10 @@ MVP 不引入独立业务错误码枚举。
     "（", "）", "(", ")",
     "…"
   ],
-  "punctuation_keep": ["%", "％"],
+  "punctuation_keep": ["%", "."],
+  "punctuation_hard_breaks": ["。", "！", "？", "!", "?"],
+  "punctuation_candidates": ["，", ",", "；", ";", "：", ":", "、", "——", "…", "“", "”", "‘", "’", """, "'", "（", "）", "(", ")"],
+  "punctuation_remove_only": ["％"],
   "llm_enabled": false,
   "llm_endpoint": "",
   "llm_model": "",
@@ -141,8 +144,11 @@ MVP 不引入独立业务错误码枚举。
 | `preset` | string | `landscape` \| `portrait` \| `custom` |
 | `max_chars` | integer | 单行最大字数；与 `preset` 联动见下文 |
 | `min_chars` | integer | 自动规则断句单行最短字数（≥1 且 ≤ `max_chars`）；完整自然短句与 LLM 结果不受此硬门禁；默认 `5` |
-| `punctuation_remove` | string[] | 去除的符号；句末符号形成硬边界，逗号等作为超长候选，引号/括号仅删除 |
-| `punctuation_keep` | string[] | 保留且不参与内置边界分类的符号 |
+| `punctuation_remove` | string[] | 去除的符号总列表（为 hard_breaks + candidates + remove_only 的并集） |
+| `punctuation_keep` | string[] | 保留且不参与去除与断句分类的符号（默认 `["%", "."]`） |
+| `punctuation_hard_breaks` | string[] | 强制断句标点，形成自然句硬边界（强制断行，默认 `["。", "！", "？", "!", "?"]`） |
+| `punctuation_candidates` | string[] | 候选断句标点，仅当所在句超长时作为切分候选点 |
+| `punctuation_remove_only` | string[] | 仅去除标点，从文本中移除但绝不产生断点 |
 | `llm_enabled` | boolean | 是否启用 LLM 断句（默认 `false`） |
 | `llm_endpoint` | string | LLM API 端点（未配置时为 `""`） |
 | `llm_model` | string | 模型名（未配置时为 `""`） |

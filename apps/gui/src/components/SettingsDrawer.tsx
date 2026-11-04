@@ -8,13 +8,16 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  DEFAULT_PUNCTUATION_CANDIDATES,
+  DEFAULT_PUNCTUATION_HARD_BREAK,
   DEFAULT_PUNCTUATION_KEEP,
-  DEFAULT_PUNCTUATION_REMOVE,
+  DEFAULT_PUNCTUATION_REMOVE_ONLY,
   PRESET_MAX_CHARS,
 } from "@/lib/settings-defaults";
 import {
-  formatPunctuationKeep,
-  parsePunctuationKeep,
+  formatPunctuationTokens,
+  parsePunctuationTokens,
+  resolvePunctuationSettings,
 } from "@/lib/text-utils";
 import { testLlmConnection } from "@/lib/api";
 import type { FlowState, LlmKeyStatus, Settings } from "@/lib/types";
@@ -235,31 +238,83 @@ export function SettingsDrawer({
 
   if (!present) return null;
 
-  const removeEnabled = settings.punctuation_remove.length > 0;
+  const currentHard = settings.punctuation_hard_breaks ?? DEFAULT_PUNCTUATION_HARD_BREAK;
+  const currentCand = settings.punctuation_candidates ?? DEFAULT_PUNCTUATION_CANDIDATES;
+  const currentRemOnly = settings.punctuation_remove_only ?? DEFAULT_PUNCTUATION_REMOVE_ONLY;
+  const currentKeep = settings.punctuation_keep ?? DEFAULT_PUNCTUATION_KEEP;
+
+  const removeEnabled =
+    settings.punctuation_remove.length > 0 ||
+    currentHard.length > 0 ||
+    currentCand.length > 0 ||
+    currentRemOnly.length > 0;
+
+  const arraysEqual = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i]);
+
+  const punctuationDefaultsApplied =
+    arraysEqual(currentHard, DEFAULT_PUNCTUATION_HARD_BREAK) &&
+    arraysEqual(currentCand, DEFAULT_PUNCTUATION_CANDIDATES) &&
+    arraysEqual(currentRemOnly, DEFAULT_PUNCTUATION_REMOVE_ONLY) &&
+    arraysEqual(currentKeep, DEFAULT_PUNCTUATION_KEEP);
+
+  const setRemoveEnabled = (enabled: boolean) => {
+    if (enabled) {
+      onChange({
+        ...settings,
+        ...resolvePunctuationSettings({
+          keep: currentKeep.length > 0 ? currentKeep : [...DEFAULT_PUNCTUATION_KEEP],
+          hard: [...DEFAULT_PUNCTUATION_HARD_BREAK],
+          candidates: [...DEFAULT_PUNCTUATION_CANDIDATES],
+          removeOnly: [...DEFAULT_PUNCTUATION_REMOVE_ONLY],
+        }),
+      });
+    } else {
+      onChange({
+        ...settings,
+        punctuation_remove: [],
+        punctuation_hard_breaks: [],
+        punctuation_candidates: [],
+        punctuation_remove_only: [],
+      });
+    }
+  };
+
+  const handlePunctuationCategoryChange = (
+    category: "keep" | "hard" | "candidates" | "removeOnly",
+    rawVal: string,
+  ) => {
+    const parsed = parsePunctuationTokens(rawVal);
+    const updated = {
+      keep: category === "keep" ? parsed : currentKeep,
+      hard: category === "hard" ? parsed : currentHard,
+      candidates: category === "candidates" ? parsed : currentCand,
+      removeOnly: category === "removeOnly" ? parsed : currentRemOnly,
+    };
+    onChange({
+      ...settings,
+      ...resolvePunctuationSettings(updated),
+    });
+  };
+
+  const handleResetPunctuationDefaults = () => {
+    onChange({
+      ...settings,
+      ...resolvePunctuationSettings({
+        keep: [...DEFAULT_PUNCTUATION_KEEP],
+        hard: [...DEFAULT_PUNCTUATION_HARD_BREAK],
+        candidates: [...DEFAULT_PUNCTUATION_CANDIDATES],
+        removeOnly: [...DEFAULT_PUNCTUATION_REMOVE_ONLY],
+      }),
+    });
+  };
+
   const llmReady =
     settings.llm_enabled &&
     llmKeyStatus.configured &&
     settings.llm_endpoint.trim() &&
     settings.llm_model.trim();
   const validationError = validateSettings(settings);
-  const punctuationDefaultsApplied =
-    settings.punctuation_keep.length === DEFAULT_PUNCTUATION_KEEP.length &&
-    DEFAULT_PUNCTUATION_KEEP.every((token) =>
-      settings.punctuation_keep.includes(token),
-    ) &&
-    settings.punctuation_remove.includes("％");
-
-  const setRemoveEnabled = (enabled: boolean) => {
-    onChange({
-      ...settings,
-      punctuation_remove: enabled ? [...DEFAULT_PUNCTUATION_REMOVE] : [],
-      punctuation_keep: enabled
-        ? settings.punctuation_keep.length > 0
-          ? settings.punctuation_keep
-          : [...DEFAULT_PUNCTUATION_KEEP]
-        : settings.punctuation_keep,
-    });
-  };
 
   const llmStatusTitle = llmReady
     ? "LLM 已就绪"
@@ -383,7 +438,7 @@ export function SettingsDrawer({
               <div>
                 <div className="shell-row-set-lbl">去除标点</div>
                 <div className="shell-row-set-sub">
-                  逗号等仅在超长时参与断句；引号和括号只删除；默认保留 % 和 .。
+                  按下方分级规则去除标点并断句；关闭时保留原样标点。
                 </div>
               </div>
               <button
@@ -395,46 +450,80 @@ export function SettingsDrawer({
               />
             </div>
 
-            <div className="shell-row-set">
-              <div>
-                <div className="shell-row-set-lbl">保留标点（可编辑）</div>
+            <div className="shell-punctuation-group">
+              <div className="shell-row-stacked">
+                <div className="shell-row-set-lbl">保留标点（优先级最高）</div>
                 <div className="shell-row-set-sub">
-                  逐个字符输入；默认保留 % 和 .，空格用于分隔。
+                  原样留在文稿中，不删除也不断句。默认保留 % 和 .。
                 </div>
+                <input
+                  className="shell-input-x"
+                  type="text"
+                  value={formatPunctuationTokens(currentKeep)}
+                  disabled={!removeEnabled}
+                  placeholder="% ."
+                  aria-label="保留标点"
+                  onChange={(e) => handlePunctuationCategoryChange("keep", e.target.value)}
+                />
               </div>
-              <div className="shell-punctuation-control">
-                <div className="shell-input-row shell-input-row-keep">
-                  <input
-                    className="shell-input-x"
-                    type="text"
-                    value={formatPunctuationKeep(settings.punctuation_keep)}
-                    disabled={!removeEnabled}
-                    placeholder="% ."
-                    aria-label="保留标点，逐个字符输入"
-                    onChange={(e) =>
-                      onChange({
-                        ...settings,
-                        punctuation_keep: parsePunctuationKeep(e.target.value),
-                      })
-                    }
-                  />
+
+              <div className="shell-row-stacked">
+                <div className="shell-row-set-lbl">强制断句标点（句末换行）</div>
+                <div className="shell-row-set-sub">
+                  去除标点并在该符号处结束自然句强制断行。默认 。 ！？ ! ?。
                 </div>
+                <input
+                  className="shell-input-x"
+                  type="text"
+                  value={formatPunctuationTokens(currentHard)}
+                  disabled={!removeEnabled}
+                  placeholder="。 ！？ ! ?"
+                  aria-label="强制断句标点"
+                  onChange={(e) => handlePunctuationCategoryChange("hard", e.target.value)}
+                />
+              </div>
+
+              <div className="shell-row-stacked">
+                <div className="shell-row-set-lbl">候选断句标点（超长时断句）</div>
+                <div className="shell-row-set-sub">
+                  去除标点，仅当整句超出最大字数时作为断句切分点。默认逗号、分号、顿号、引号等。
+                </div>
+                <input
+                  className="shell-input-x"
+                  type="text"
+                  value={formatPunctuationTokens(currentCand)}
+                  disabled={!removeEnabled}
+                  placeholder="， , ； ; ： : 、 —— …"
+                  aria-label="候选断句标点"
+                  onChange={(e) => handlePunctuationCategoryChange("candidates", e.target.value)}
+                />
+              </div>
+
+              <div className="shell-row-stacked">
+                <div className="shell-row-set-lbl">仅去除标点（不产生断点）</div>
+                <div className="shell-row-set-sub">
+                  直接从文本中移除，绝不作为断句断点。默认 ％。
+                </div>
+                <input
+                  className="shell-input-x"
+                  type="text"
+                  value={formatPunctuationTokens(currentRemOnly)}
+                  disabled={!removeEnabled}
+                  placeholder="％"
+                  aria-label="仅去除标点"
+                  onChange={(e) => handlePunctuationCategoryChange("removeOnly", e.target.value)}
+                />
+              </div>
+
+              <div className="shell-punctuation-reset-row">
                 <button
                   type="button"
                   className="shell-inline-reset-btn"
                   disabled={!removeEnabled || punctuationDefaultsApplied}
-                  onClick={() =>
-                    onChange({
-                      ...settings,
-                      punctuation_remove: [
-                        ...new Set([...settings.punctuation_remove, "％"]),
-                      ],
-                      punctuation_keep: [...DEFAULT_PUNCTUATION_KEEP],
-                    })
-                  }
+                  onClick={handleResetPunctuationDefaults}
                 >
                   <RotateCcwIcon aria-hidden="true" />
-                  恢复默认
+                  恢复默认标点规则
                 </button>
               </div>
             </div>

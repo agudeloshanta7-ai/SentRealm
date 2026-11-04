@@ -54,6 +54,9 @@ def iter_preprocess(
         text,
         punctuation_remove=settings.punctuation_remove,
         punctuation_keep=settings.punctuation_keep,
+        punctuation_hard_breaks=settings.punctuation_hard_breaks,
+        punctuation_candidates=settings.punctuation_candidates,
+        punctuation_remove_only=settings.punctuation_remove_only,
     )
     lexicon = resolve_break_lexicon(settings)
     rule_lines: list[str] = []

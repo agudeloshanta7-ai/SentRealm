@@ -17,6 +17,9 @@ export interface Settings {
   min_chars: number;
   punctuation_remove: string[];
   punctuation_keep: string[];
+  punctuation_hard_breaks?: string[];
+  punctuation_candidates?: string[];
+  punctuation_remove_only?: string[];
   llm_enabled: boolean;
   llm_endpoint: string;
   llm_model: string;
